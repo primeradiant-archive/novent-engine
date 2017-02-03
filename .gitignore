@@ -1,0 +1,13 @@
+coverage/
+doc/
+node_modules/
+typings/
+build/
+npm-debug.log
+src/**/*.js
+test/**/*.js
+**/*.js.map
+src/**/*.ts.ktp.ts
+.DS_Store
+**/.DS_Store
+**/*.html
