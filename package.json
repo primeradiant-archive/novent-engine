@@ -42,7 +42,5 @@
     "webpack": "^2.2.0"
   },
   "dependencies": {
-    "createjs-easeljs": "^0.8.2",
-    "lodash": "^4.17.4"
   }
 }
