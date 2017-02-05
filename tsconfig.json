@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es5",
+        "sourceMap": true,
+        "allowUnusedLabels": false,
+        "noImplicitReturns": true,
+        "types": [
+          "bluebird-global"
+        ]
+    },
+    "include": [
+        "src/**/*",
+        "test/**/*"
+    ],
+    "exclude": [
+        "build",
+        "node_modules"
+    ]
+}
