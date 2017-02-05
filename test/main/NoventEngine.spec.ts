@@ -1,7 +1,7 @@
-/// <reference path="../../typings/tsd.d.ts" />
 import NoventEngine from '../../src/main/NoventEngine';
 import Novent from '../../src/main/modules/Novent';
 import { expect } from 'chai';
+import {} from 'mocha';
 
 var noventEngine = new NoventEngine();
 
@@ -25,6 +25,9 @@ describe('NoventEngine', function() {
       });
 
       it('should instantiate novent property', function() {
+        var canvas = document.createElement("CANVAS");
+        document.body.appendChild(canvas);
+
         var init = function() {console.log('test');};
         var novent = noventEngine.novent(1, 2, init);
 
@@ -35,7 +38,10 @@ describe('NoventEngine', function() {
         expect(novent.init).to.equal(init);
       });
 
-      it('should instantiate novent property', function() {
+      it('should return instantiated novent', function() {
+        var canvas = document.createElement("CANVAS");
+        document.body.appendChild(canvas);
+
         var novent = noventEngine.novent(1, 2);
         expect(noventEngine.novent()).to.equal(novent);
       });

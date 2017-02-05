@@ -3,10 +3,11 @@
 
 module.exports = function(config) {
     config.set({
-        frameworks: ["mocha", "chai", "karma-typescript"],
+        frameworks: ["mocha", "chai-spies", "chai", "karma-typescript"],
         files: [
             { pattern: "src/**/*.ts" },
-            { pattern: "test/**/*.ts" }
+            { pattern: "test/**/*.ts" },
+            { pattern: "dependencies/**/*.js" }
         ],
         preprocessors: {
             "src/**/*.ts": ["karma-typescript"],

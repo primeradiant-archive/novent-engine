@@ -4,7 +4,10 @@
         "target": "es5",
         "sourceMap": true,
         "allowUnusedLabels": false,
-        "noImplicitReturns": true
+        "noImplicitReturns": true,
+        "types": [
+          "bluebird-global"
+        ]
     },
     "include": [
         "src/**/*",
