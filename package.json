@@ -2,6 +2,10 @@
   "name": "novent-engine",
   "version": "0.0.1",
   "description": "The Novent Engine Javascript library, based on CreateJS.",
+  "repository" : {
+    "type" : "git",
+    "url" : "https://github.com/Oniri/novent-engine"
+  },
   "main": "build/novent-engine.js",
   "scripts": {
     "test": "karma start",
