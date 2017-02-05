@@ -1,6 +1,6 @@
 {
   "name": "novent-engine",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "The Novent Engine Javascript library, based on CreateJS.",
   "repository" : {
     "type" : "git",
