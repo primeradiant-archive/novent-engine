@@ -2,7 +2,6 @@ coverage/
 doc/
 node_modules/
 typings/
-build/
 npm-debug.log
 src/**/*.js
 test/**/*.js
