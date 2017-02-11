@@ -36,7 +36,6 @@ describe('Novent', function() {
       expect(novent.stage).to.exist;
       expect(novent.pages).to.eql([]);
       expect(novent.index).to.eql(0);
-      expect(novent.waiting).to.be.true;
       expect(novent.scope).to.eql({});
     });
   });
@@ -143,7 +142,6 @@ describe('Novent', function() {
 
       novent.load(1)
       .then(function() {
-        expect(novent.load).to.not.have.been.called.exactly(4);
         expect(page0.load).to.not.have.been.called();
         expect(page1.load).to.have.been.called();
         expect(page2.load).to.have.been.called();

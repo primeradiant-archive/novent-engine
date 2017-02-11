@@ -16,9 +16,9 @@ export default class Novent extends events.EventEmitter {
   stage: createjs.Stage;
   pages: Array<Page>;
   index: number;
-  waiting: boolean;
+  playPromise: Promise<any>;
   scope: Object;
-  loading: boolean;
+  loadPromise: Promise<any>;
 
   constructor(height:number, width: number, init: (stage: createjs.Stage, novent: Novent) => void) {
     super();
@@ -31,10 +31,9 @@ export default class Novent extends events.EventEmitter {
     this.stage = new createjs.Stage(this.canvas);
     this.pages = [];
     this.index = 0;
-    this.waiting = true;
     this.scope = {};
-    this.loading = false;
-
+    this.loadPromise = null;
+    this.playPromise = null;
     this._init();
   }
 
@@ -52,46 +51,51 @@ export default class Novent extends events.EventEmitter {
   load(ordinal?: number): Promise<any> {
     var novent = this;
 
-    if(ordinal === undefined || ordinal === null)
-      ordinal = this.index;
+    if(ordinal === undefined || ordinal === null || ordinal < 0 || ordinal >= novent.pages.length)
+      ordinal = novent.index;
 
-    if(!novent.loading && ordinal >= 0 && ordinal < this.pages.length) {
-      novent.loading = true;
-      return novent.page(ordinal).load()
-      .then(function() {
-        novent.loading = false;
-        if(ordinal !== novent.pages.length - 1) {
-          return novent.load(ordinal + 1);
-        } else {
-          novent.emit('loaded');
-        }
-        return null;
+    if(!novent.loadPromise) {
+      novent.loadPromise = novent.page(ordinal).load();
+
+      var loadIndex: number = ordinal;
+      for(var i = loadIndex + 1; i < novent.pages.length; i++) {
+        novent.loadPromise = novent.loadPromise.then(function() {
+          loadIndex++;
+          return novent.page(loadIndex).load();
+        });
+      }
+
+      novent.loadPromise.then(function() {
+        return novent.emit('loaded');
       });
-    } else {
-      return Promise.resolve();
     }
+
+    return novent.loadPromise;
   }
 
   play(): Promise<any> {
     var novent = this;
-    if(novent.waiting && novent.index !== novent.pages.length) {
-      novent.waiting = false;
-      return novent.page(novent.index).play()
-      .then(function() {
-        novent.waiting = true;
-        if(novent.page(novent.index).complete) {
-          novent.index++;
-          if(novent.index === novent.pages.length) {
-            novent.emit('complete');
-          } else {
-            return novent.play();
+    if(!novent.playPromise) {
+      if(novent.index !== novent.pages.length) {
+        novent.playPromise = novent.page(novent.index).play()
+        .then(function() {
+          novent.playPromise = null;
+          if(novent.page(novent.index).complete) {
+            novent.index++;
+            if(novent.index === novent.pages.length) {
+              novent.emit('complete');
+            } else {
+              return novent.play();
+            }
           }
-        }
-        return null;
-      });
+          return null;
+        });
+      } else {
+        novent.playPromise = Promise.resolve();
+      }
     }
 
-    return Promise.resolve();
+    return novent.playPromise;
   }
 
   private _init(): void {
