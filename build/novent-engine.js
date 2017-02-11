@@ -63,7 +63,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 14);
+/******/ 	return __webpack_require__(__webpack_require__.s = 13);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -6534,9 +6534,9 @@ var Novent = (function (_super) {
         _this.stage = new createjs.Stage(_this.canvas);
         _this.pages = [];
         _this.index = 0;
-        _this.waiting = true;
         _this.scope = {};
-        _this.loading = false;
+        _this.loadPromise = null;
+        _this.playPromise = null;
         _this._init();
         return _this;
     }
@@ -6550,46 +6550,70 @@ var Novent = (function (_super) {
     };
     Novent.prototype.load = function (ordinal) {
         var novent = this;
-        if (ordinal === undefined || ordinal === null)
-            ordinal = this.index;
-        if (!novent.loading && ordinal >= 0 && ordinal < this.pages.length) {
-            novent.loading = true;
-            return novent.page(ordinal).load()
-                .then(function () {
-                novent.loading = false;
-                if (ordinal !== novent.pages.length - 1) {
-                    return novent.load(ordinal + 1);
-                }
-                else {
-                    novent.emit('loaded');
-                }
-                return null;
+        if (ordinal === undefined || ordinal === null || ordinal < 0 || ordinal >= novent.pages.length)
+            ordinal = novent.index;
+        if (!novent.loadPromise) {
+            novent.loadPromise = novent.page(ordinal).load();
+            var loadIndex = ordinal;
+            for (var i = loadIndex + 1; i < novent.pages.length; i++) {
+                novent.loadPromise = novent.loadPromise.then(function () {
+                    loadIndex++;
+                    return novent.page(loadIndex).load();
+                });
+            }
+            novent.loadPromise.then(function () {
+                return novent.emit('loaded');
             });
         }
-        else {
-            return Promise.resolve();
-        }
+        return novent.loadPromise;
     };
     Novent.prototype.play = function () {
         var novent = this;
-        if (novent.waiting && novent.index !== novent.pages.length) {
-            novent.waiting = false;
-            return novent.page(novent.index).play()
-                .then(function () {
-                novent.waiting = true;
-                if (novent.page(novent.index).complete) {
-                    novent.index++;
-                    if (novent.index === novent.pages.length) {
-                        novent.emit('complete');
+        if (!novent.playPromise) {
+            if (novent.index !== novent.pages.length) {
+                novent.playPromise = novent.page(novent.index).play()
+                    .then(function () {
+                    novent.playPromise = null;
+                    if (novent.page(novent.index).complete) {
+                        novent.index++;
+                        if (novent.index === novent.pages.length) {
+                            novent.emit('complete');
+                        }
+                        else {
+                            return novent.play();
+                        }
                     }
-                    else {
-                        return novent.play();
-                    }
-                }
-                return null;
-            });
+                    return null;
+                });
+            }
+            else {
+                novent.playPromise = Promise.resolve();
+            }
         }
-        return Promise.resolve();
+        return novent.playPromise;
+    };
+    Novent.prototype.eventCount = function () {
+        var eventCount = 0;
+        for (var i = 0; i < this.pages.length; i++) {
+            eventCount += +this.page(i).events.length;
+        }
+        return eventCount;
+    };
+    Novent.prototype.loadProgress = function () {
+        var progress = 0;
+        for (var i = 0; i < this.pages.length; i++) {
+            progress = progress + (this.page(i).loadQueue.progress * this.page(i).events.length) / this.eventCount();
+        }
+        return progress;
+    };
+    Novent.prototype.progress = function () {
+        var readEvents = 0;
+        for (var i = 0; i < this.pages.length; i++) {
+            for (var j = 0; j < this.page(i).index; j++) {
+                readEvents++;
+            }
+        }
+        return readEvents / this.eventCount();
     };
     Novent.prototype._init = function () {
         var novent = this;
@@ -6621,26 +6645,41 @@ var __extends = (this && this.__extends) || function (d, b) {
 };
 var Event_1 = __webpack_require__(8);
 var events = __webpack_require__(1);
-var PageLoadUtil_1 = __webpack_require__(13);
 var CreateJsUtil_1 = __webpack_require__(12);
 var Promise = __webpack_require__(0);
 var Page = (function (_super) {
     __extends(Page, _super);
     function Page(novent, ordinal, name, materials, init) {
         var _this = _super.call(this) || this;
-        _this.novent = novent;
-        _this.ordinal = ordinal;
-        _this.name = name;
-        _this.materials = materials;
-        _this.init = init;
-        _this.complete = false;
-        _this.container = new createjs.Container();
-        _this.loading = false;
-        _this.lib = {};
-        _this.scope = {};
-        _this.events = [];
-        _this.index = 0;
-        _this.waiting = true;
+        var page = _this;
+        page.novent = novent;
+        page.ordinal = ordinal;
+        page.name = name;
+        page.materials = materials;
+        page.init = init;
+        page.complete = false;
+        page.container = new createjs.Container();
+        page.lib = {};
+        page.scope = {};
+        page.events = [];
+        page.index = 0;
+        page.playPromise = null;
+        page.loadQueue = new createjs.LoadQueue(true);
+        page.loadQueue.setPaused(true);
+        page.loadQueue.installPlugin(createjs.Sound);
+        page.playPromise = null;
+        page.loadQueue.on('fileload', function (event) {
+            page.lib[event.item.id] = event.result;
+        });
+        page.loadQueue.on('complete', function () {
+            page.emit('loaded');
+        });
+        page.loadQueue.on('error', function () {
+            page.emit('loadError');
+        });
+        page.loadQueue.on('fileerror', function () {
+            page.emit('loadError');
+        });
         return _this;
     }
     Page.prototype.event = function (ordinal, eventFunction) {
@@ -6648,46 +6687,66 @@ var Page = (function (_super) {
         return this.events[ordinal];
     };
     Page.prototype.load = function () {
-        if (this.materials && Object.keys(this.materials).length !== 0) {
-            return PageLoadUtil_1.default.nonEmptyLoadQueuePromise(this);
+        var page = this;
+        if (!page.loadPromise) {
+            if (this.materials && Object.keys(this.materials).length !== 0) {
+                page.loadPromise = new Promise(function (resolve, reject) {
+                    page.loadQueue.on('complete', resolve);
+                    page.loadQueue.on('error', reject);
+                    page.loadQueue.on('fileerror', reject);
+                });
+                for (var key in page.materials) {
+                    if (page.materials.hasOwnProperty(key))
+                        page.loadQueue.loadFile({ id: key, src: page.materials[key], loadNow: false });
+                }
+                page.loadQueue.load();
+            }
+            else {
+                page.loadQueue.progress = 1;
+                page.loadQueue.dispatchEvent('progress');
+                page.loadQueue.dispatchEvent('complete');
+                page.emit('loaded');
+                page.loadPromise = Promise.resolve();
+            }
         }
-        else {
-            return PageLoadUtil_1.default.emptyLoadQueuePromise(this);
-        }
+        return page.loadPromise;
     };
     Page.prototype.play = function () {
         var page = this;
-        if (page.waiting && page.index !== page.events.length) {
-            page.waiting = false;
-            var promise;
-            if (page.index === 0) {
-                return page.load()
-                    .then(function () {
-                    page._init();
-                    return page.events[page.index].play();
-                })
-                    .then(function () {
-                    page.index++;
-                    page.waiting = true;
-                    if (page.index === page.events.length) {
-                        page.complete = true;
-                        page.emit('complete');
-                    }
-                });
+        if (!page.playPromise) {
+            if (page.index !== page.events.length) {
+                if (page.index === 0) {
+                    page.playPromise = page.load()
+                        .then(function () {
+                        page._init();
+                        return page.events[page.index].play();
+                    })
+                        .then(function () {
+                        page.index++;
+                        page.playPromise = null;
+                        if (page.index === page.events.length) {
+                            page.complete = true;
+                            page.emit('complete');
+                        }
+                    });
+                }
+                else {
+                    page.playPromise = page.events[page.index].play()
+                        .then(function () {
+                        page.index++;
+                        page.playPromise = null;
+                        if (page.index === page.events.length) {
+                            page.complete = true;
+                            page.emit('complete');
+                        }
+                    });
+                }
             }
             else {
-                return page.events[page.index].play()
-                    .then(function () {
-                    page.index++;
-                    page.waiting = true;
-                    if (page.index === page.events.length) {
-                        page.complete = true;
-                        page.emit('complete');
-                    }
-                });
+                page.playPromise = Promise.resolve();
             }
         }
-        return Promise.resolve();
+        return page.playPromise;
     };
     Page.prototype._init = function () {
         if (this.init)
@@ -6759,65 +6818,6 @@ exports.default = CreateJsUtil;
 
 /***/ }),
 /* 13 */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-var Promise = __webpack_require__(0);
-var PageLoadUtil = {
-    createAndPopulateLoadQueue: function (page) {
-        page.loading = true;
-        var loadQueue = new createjs.LoadQueue(true);
-        loadQueue.installPlugin(createjs.Sound);
-        for (var key in page.materials) {
-            if (page.materials.hasOwnProperty(key))
-                loadQueue.loadFile({ id: key, src: page.materials[key] });
-        }
-        loadQueue.on('fileload', function (event) {
-            page.lib[event.item.id] = event.result;
-        });
-        loadQueue.on('complete', function () {
-            page.loading = false;
-            page.emit('loaded');
-        });
-        loadQueue.on('error', function (event) {
-            page.loading = false;
-            page.emit('loadError');
-        });
-        loadQueue.on('fileerror', function (event) {
-            page.loading = false;
-            page.emit('loadError');
-        });
-        return loadQueue;
-    },
-    nonEmptyLoadQueuePromise: function (page) {
-        return new Promise(function (resolve, reject) {
-            if (!page.loading) {
-                page.loadQueue = PageLoadUtil.createAndPopulateLoadQueue(page);
-            }
-            if (page.loadQueue.loaded)
-                resolve();
-            page.loadQueue.on('complete', resolve);
-            page.loadQueue.on('error', reject);
-            page.loadQueue.on('fileerror', reject);
-            page.loadQueue.load();
-        });
-    },
-    emptyLoadQueuePromise: function (page) {
-        page.loadQueue = new createjs.LoadQueue(true);
-        page.loadQueue.progress = 1;
-        page.loadQueue.dispatchEvent('progress');
-        page.loadQueue.dispatchEvent('complete');
-        page.emit('loaded');
-        return Promise.resolve();
-    }
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = PageLoadUtil;
-
-
-/***/ }),
-/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
