@@ -34,6 +34,7 @@ export default class Novent extends events.EventEmitter {
     this.scope = {};
     this.loadPromise = null;
     this.playPromise = null;
+
     this._init();
   }
 
@@ -96,6 +97,36 @@ export default class Novent extends events.EventEmitter {
     }
 
     return novent.playPromise;
+  }
+
+  eventCount(): number {
+    var eventCount = 0;
+    for(var i = 0; i < this.pages.length; i++) {
+      eventCount += + this.page(i).events.length;
+    }
+
+    return eventCount;
+  }
+
+  loadProgress(): number {
+    var progress = 0;
+    for(var i = 0; i < this.pages.length; i++) {
+      progress = progress + (this.page(i).loadQueue.progress*this.page(i).events.length)/this.eventCount();
+    }
+
+    return progress;
+  }
+
+  progress(): number {
+    var readEvents = 0;
+
+    for(var i = 0; i < this.pages.length; i++) {
+      for(var j = 0; j < this.page(i).index; j++) {
+        readEvents++;
+      }
+    }
+
+    return readEvents/this.eventCount();
   }
 
   private _init(): void {

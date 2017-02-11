@@ -6592,6 +6592,29 @@ var Novent = (function (_super) {
         }
         return novent.playPromise;
     };
+    Novent.prototype.eventCount = function () {
+        var eventCount = 0;
+        for (var i = 0; i < this.pages.length; i++) {
+            eventCount += +this.page(i).events.length;
+        }
+        return eventCount;
+    };
+    Novent.prototype.loadProgress = function () {
+        var progress = 0;
+        for (var i = 0; i < this.pages.length; i++) {
+            progress = progress + (this.page(i).loadQueue.progress * this.page(i).events.length) / this.eventCount();
+        }
+        return progress;
+    };
+    Novent.prototype.progress = function () {
+        var readEvents = 0;
+        for (var i = 0; i < this.pages.length; i++) {
+            for (var j = 0; j < this.page(i).index; j++) {
+                readEvents++;
+            }
+        }
+        return readEvents / this.eventCount();
+    };
     Novent.prototype._init = function () {
         var novent = this;
         createjs.Ticker.setFPS(30);
